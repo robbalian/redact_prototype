@@ -1,84 +1,143 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-  <title>PDF Redactor</title>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <style>
-    #drop_zone {
-      border: 2px dashed #0087F7;
-      border-radius: 5px;
-      background: white;
-      padding: 50px;
-      text-align: center;
-      font-size: 20px;
-      margin: 20px;
-    }
-  </style>
+    <title>PDF Redactor</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #drop_zone {
+            border: 2px dashed #0087F7;
+            border-radius: 5px;
+            background: #F9F9F9;
+            padding: 50px;
+            text-align: center;
+            font-size: 20px;
+            margin: 20px;
+            transition: background-color 0.3s;
+        }
+
+        #drop_zone.dragging {
+            background-color: #D3F4FF;
+        }
+
+        .drop_zone_text {
+            margin: 10px 0;
+        }
+
+        #file_input {
+            display: none;
+        }
+
+        #redaction_instructions {
+            margin: 10px 0;
+            padding: 10px;
+            width: calc(100% - 40px);
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        #upload_button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #upload_button:hover {
+            background-color: #45a049;
+        }
+
+        #clear_button {
+            display: none;
+            margin-left: 10px;
+        }
+    </style>
 </head>
-
 <body>
-  <div id="drop_zone">Drag and drop your PDF here or click to select files</div>
-  <input type="file" id="file_input" style="display: none;" />
-  <button id="upload_button">Upload</button>
+    <div id="drop_zone">Drop your PDF here or click to select a file</div>
+    <div class="drop_zone_text" id="file_name"></div>
+    <input type="file" id="file_input" />
+    <input type="text" id="redaction_instructions" placeholder="Enter redaction instructions..." value="Redact the defendents and garnishee's information and names" />
+    <button id="upload_button">Upload</button>
+    <button id="clear_button">Clear</button>
 
-  <script>
-    $(document).ready(function () {
-      $("#drop_zone").on("click", function () {
-        $("#file_input").click();
-      });
+    <script>
+        $(document).ready(function () {
+            $("#drop_zone").on("click", function () {
+                $("#file_input").click();
+            });
 
-      $("#drop_zone").on("dragover", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        $(this).addClass('dragging');
-      });
+            $("#drop_zone").on("dragover", function (event) {
+                event.preventDefault();
+                $(this).addClass('dragging');
+            });
 
-      $("#drop_zone").on("dragleave", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        $(this).removeClass('dragging');
-      });
+            $("#drop_zone").on("dragleave", function (event) {
+                event.preventDefault();
+                $(this).removeClass('dragging');
+            });
 
-      $("#drop_zone").on("drop", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        let files = event.originalEvent.dataTransfer.files;
-        $("#file_input").prop("files", files);
-        $(this).removeClass('dragging');
-      });
+            $("#drop_zone").on("drop", function (event) {
+                event.preventDefault();
+                $(this).removeClass('dragging');
+                let files = event.originalEvent.dataTransfer.files;
+                $("#file_input").prop("files", files);
+                displayFileName();
+            });
 
-      $("#upload_button").on("click", function () {
-        let formData = new FormData();
-        formData.append("file", $("#file_input")[0].files[0]);
-        formData.append("redact_instructions", "redact all instances of FLORIDA")
+            $("#file_input").change(function () {
+                displayFileName();
+            });
 
-        $.ajax({
-          url: '/upload-pdf/',
-          type: 'POST',
-          data: formData,
-          processData: false,
-          contentType: false,
-          success: function (data) {
-            alert("File uploaded successfully. Filename: " + data.filename);
-            // You can then construct a download link or automatically start the download
-            // Create a download link
-            console.log(data.filename)
-            let downloadLink = $("<a>")
-              .attr("href", "/download-pdf/" + data.filename)
-              .attr("download", "")
-              .text("Download Redacted PDF");
+            $("#upload_button").on("click", function () {
+                let formData = new FormData();
+                formData.append("file", $("#file_input")[0].files[0]);
+                formData.append("redact_instructions", $("#redaction_instructions").val());
 
-            // Append the download link to the body or a specific div
-            $("body").append(downloadLink);
-          },
-          error: function () {
-            alert("There was an error uploading the file");
-          }
+                $.ajax({
+                    url: '/upload-pdf/',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (data) {
+                        alert("File uploaded successfully. Filename: " + data.filename);
+                        let downloadLink = $("<a>")
+                            .attr("href", "/download-pdf/" + data.filename)
+                            .attr("download", "")
+                            .text("Download " + data.filename);
+                        $("body").append(downloadLink);
+                    },
+                    error: function () {
+                        alert("There was an error uploading the file");
+                    }
+                });
+            });
+
+            $("#clear_button").click(function() {
+                $("#file_input").val('');
+                $("#file_name").text('');
+                $(this).hide();
+            });
+
+            function displayFileName() {
+                let file = $("#file_input")[0].files[0];
+                if (file) {
+                    $("#file_name").text(`Selected file: ${file.name}`);
+                    $("#clear_button").show();
+                } else {
+                    $("#file_name").text('');
+                    $("#clear_button").hide();
+                }
+            }
         });
-      });
-    });
-  </script>
+    </script>
 </body>
-
 </html>
