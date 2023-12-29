@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>PDF Redactor</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    #drop_zone {
+      border: 2px dashed #0087F7;
+      border-radius: 5px;
+      background: white;
+      padding: 50px;
+      text-align: center;
+      font-size: 20px;
+      margin: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="drop_zone">Drag and drop your PDF here or click to select files</div>
+  <input type="file" id="file_input" style="display: none;" />
+  <button id="upload_button">Upload</button>
+
+  <script>
+    $(document).ready(function () {
+      $("#drop_zone").on("click", function () {
+        $("#file_input").click();
+      });
+
+      $("#drop_zone").on("dragover", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        $(this).addClass('dragging');
+      });
+
+      $("#drop_zone").on("dragleave", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        $(this).removeClass('dragging');
+      });
+
+      $("#drop_zone").on("drop", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        let files = event.originalEvent.dataTransfer.files;
+        $("#file_input").prop("files", files);
+        $(this).removeClass('dragging');
+      });
+
+      $("#upload_button").on("click", function () {
+        let formData = new FormData();
+        formData.append("file", $("#file_input")[0].files[0]);
+        formData.append("redact_instructions", "redact all instances of FLORIDA")
+
+        $.ajax({
+          url: '/upload-pdf/',
+          type: 'POST',
+          data: formData,
+          processData: false,
+          contentType: false,
+          success: function (data) {
+            alert("File uploaded successfully. Filename: " + data.filename);
+            // You can then construct a download link or automatically start the download
+            // Create a download link
+            console.log(data.filename)
+            let downloadLink = $("<a>")
+              .attr("href", "/download-pdf/" + data.filename)
+              .attr("download", "")
+              .text("Download Redacted PDF");
+
+            // Append the download link to the body or a specific div
+            $("body").append(downloadLink);
+          },
+          error: function () {
+            alert("There was an error uploading the file");
+          }
+        });
+      });
+    });
+  </script>
+</body>
+
+</html>
