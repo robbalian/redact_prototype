@@ -120,3 +120,8 @@ async def download_pdf(filename: str):
     if os.path.exists(file_path):
         return FileResponse(path=file_path, filename=filename, media_type='application/pdf')
     return {"error": "File not found"}
+
+
+@app.get("test")
+async def test():
+    return {"message": "Hello, world!"}
