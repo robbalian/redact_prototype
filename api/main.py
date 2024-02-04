@@ -57,7 +57,7 @@ def redact_pdf_and_upload(input_pdf_bytes, output_pdf_name, redact_instructions)
         for textToRedact in redactionResponse['text_to_redact']:
             text_instances = page.search_for(textToRedact['text'])
             for inst in text_instances:
-                redact = page.add_redact_annot(inst, text='')
+                redact = page.add_redact_annot(inst, text='', fill=(0, 0, 0))
                 redact.update()
 
     for p in doc.pages():
