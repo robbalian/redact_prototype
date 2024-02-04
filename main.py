@@ -17,22 +17,22 @@ FILE_DIR = "uploaded_files"
 if not os.path.exists(FILE_DIR):
     os.makedirs(FILE_DIR)
 
-def get_redaction_strings(page_text, redaction_instructions):
+def get_redaction_response(page_text, redaction_instructions):
   try:
       response = openaiClient.chat.completions.create(
           model= "gpt-4-1106-preview", #"gpt-4-1106-preview", #"gpt-3.5-turbo-1106"
           response_format={ "type": "json_object" },
           messages=[
-              {"role": "system", "content": "You are a helpful JSON-outputting redaction assistant. You output a JSON array with the exact strings (which may include spaces or weird characters) to redact from a PDF. "},
-              {"role": "user", "content": 'Please identify the strings to redact based on these instructions: ' + redaction_instructions + \
-               '\n Note: ONLY make these redactions. It\'s very important to not OVER-redact information. \
-                You should NOT redact information that should be public (the clerks office, the attorneys trying the case, the recipient of the letter)\
-                \n\n Here is the text: '+page_text+' \n\n reponse format: {"strings_to_redact": ["string1", "string2"]}'}
+              {"role": "system", "content": "You are a helpful JSON-outputting redaction assistant. You output a JSON array with the exact strings and cited reasons (which may include spaces or weird characters) to redact from a PDF. "},
+              {"role": "user", "content": 'Here is the PDF: '+page_text+' \
+               Redaction instructions:\n\n' + redaction_instructions + \
+               '\n\n Based only on the above instructions, do we need to redact anything from this document? If so, what? \
+               \n\n reponse format: {"overall_reasoning":"<Brief reasoning for redaction texts or not redacting anything>", "text_to_redact": [{"text":"<string 1>","reasoning":"<cited instruction from above>"}, {"text":"<string 2>","reasoning":"<cited instruction from above>"}]}'}
           ]
       )
       print(response)
       jsonResponse = json.loads(response.choices[0].message.content)
-      return jsonResponse['strings_to_redact']  # Adjust according to the expected format
+      return jsonResponse  # Adjust according to the expected format
   except Exception as e:
       print(f"Error: {e}")
       return None
@@ -52,10 +52,9 @@ def redact_pdf(input_pdf, output_pdf, redact_instructions):
       full_text += pageText
 
 
-    stringsToRedact = get_redaction_strings(full_text, redact_instructions)      
-    print('stringsToRedact', stringsToRedact)
+    redactionResponse = get_redaction_response(full_text, redact_instructions)   
 
-    if stringsToRedact is None:
+    if redactionResponse is None:
       print('error getting strings to redact')
       return
 
@@ -69,10 +68,10 @@ def redact_pdf(input_pdf, output_pdf, redact_instructions):
       textPage = page.get_textpage(flags=flags)
       pageText = page.get_text("text", flags=flags)
 
-      for stringToRedact in stringsToRedact:
-        text_instances = page.search_for(stringToRedact, flags=flags, textpage=textPage)
+      for textToRedact in redactionResponse['text_to_redact']:
+        text_instances = page.search_for(textToRedact['text'], flags=flags, textpage=textPage)
         print(text_instances)
-        print(f'redacting {stringToRedact} with {len(text_instances)} instances')
+        print(f'redacting {textToRedact["text"]} with {len(text_instances)} instances')
 
         # Iterate through each found instance and create a redaction annotation
         for inst in text_instances:
@@ -87,7 +86,7 @@ def redact_pdf(input_pdf, output_pdf, redact_instructions):
     # Save the redacted document
     doc.save(output_pdf)
     doc.close()
-    return {"filename": output_pdf, 'redacted_strings': stringsToRedact}
+    return {"filename": output_pdf, 'redaction_response': redactionResponse}
 
 # Serve the static HTML file
 @app.get("/", response_class=HTMLResponse)
@@ -110,7 +109,7 @@ async def upload_pdf(file: UploadFile = File(...), redact_instructions: str = Fo
 
     os.remove(input_pdf_path)  # Remove the original file
     
-    returnValue = {"filename": f"redacted_{file.filename}", 'redacted_strings': result['redacted_strings']}
+    returnValue = {"filename": f"redacted_{file.filename}", 'redaction_response': result['redaction_response']}
 
     return returnValue
 
