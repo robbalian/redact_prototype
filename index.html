@@ -152,7 +152,7 @@
           contentType: false,
           success: function (data) {
             let downloadLink = $("<a>")
-              .attr("href", "/download-pdf/" + data.filename)
+              .attr("href", data.file_url)
               .attr("download", "")
               .text("Download " + data.filename);
             $("body").append(downloadLink);
